@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Metadata } from 'next';
+import Comments from '@/components/Comments';
 
 const mdxComponents = {
   img: (props: React.ImgHTMLAttributes<HTMLImageElement>) => (
@@ -84,6 +85,13 @@ export default async function PostPage({ params }: Props) {
       <div className="prose prose-gray prose-lg max-w-none prose-headings:font-bold prose-a:text-violet-600 prose-code:text-violet-700 prose-code:bg-violet-50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-900 prose-pre:text-gray-100">
         <MDXRemote source={post.content} components={mdxComponents} />
       </div>
+
+      {/* Comments and reactions */}
+      <section className="mt-14 border-t border-gray-100 pt-8">
+        <h2 className="text-xl font-bold text-gray-900">Comments & Reactions</h2>
+        <p className="text-sm text-gray-500 mt-1">Sign in with GitHub to leave a comment or react to this article.</p>
+        <Comments slug={post.slug} />
+      </section>
     </article>
   );
 }
