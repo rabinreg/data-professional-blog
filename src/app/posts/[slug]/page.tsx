@@ -89,7 +89,7 @@ export default async function PostPage({ params }: Props) {
       {/* Comments and reactions */}
       <section className="mt-14 border-t border-gray-100 pt-8">
         <h2 className="text-xl font-bold text-gray-900">Comments & Reactions</h2>
-        <p className="text-sm text-gray-500 mt-1">Sign in with GitHub to leave a comment or react to this article.</p>
+        <p className="text-sm text-gray-500 mt-1">No sign-in needed — readers can like and comment directly.</p>
         <Comments slug={post.slug} />
       </section>
     </article>
