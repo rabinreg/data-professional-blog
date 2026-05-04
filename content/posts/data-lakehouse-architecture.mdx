@@ -1,0 +1,86 @@
+---
+title: "Data Lakehouse Architecture: Why It's Replacing the Traditional Data Warehouse"
+date: "2026-02-10"
+description: "An in-depth look at the data lakehouse pattern — combining the flexibility of data lakes with the performance and governance of data warehouses."
+tags: ["data-engineering", "data-lakehouse", "delta-lake", "architecture"]
+---
+
+## The Evolution of Data Storage
+
+Data architecture has gone through clear phases:
+
+1. **Data Warehouses** (Teradata, Redshift) — structured, fast, expensive
+2. **Data Lakes** (S3 + Hive) — cheap, flexible, but slow and unreliable
+3. **Data Lakehouses** (Delta Lake, Apache Iceberg, Apache Hudi) — best of both
+
+## What Makes a Lakehouse
+
+A lakehouse stores data in open file formats (Parquet, ORC) on cheap object storage (S3, GCS) but adds a **transactional metadata layer** on top:
+
+| Feature | Data Lake | Lakehouse |
+|---|---|---|
+| ACID transactions | ❌ | ✅ |
+| Schema enforcement | ❌ | ✅ |
+| Time travel | ❌ | ✅ |
+| BI query performance | Slow | Fast |
+| Storage cost | Low | Low |
+
+## Delta Lake in Practice
+
+Delta Lake (by Databricks, now Apache) is the most widely adopted lakehouse format. Here's what makes it special:
+
+### ACID Transactions
+
+```python
+# This write either fully succeeds or fully fails
+spark.write \
+    .format("delta") \
+    .mode("overwrite") \
+    .save("/data/transactions")
+```
+
+### Time Travel
+
+```python
+# Read yesterday's snapshot
+df = spark.read \
+    .format("delta") \
+    .option("versionAsOf", 5) \
+    .load("/data/transactions")
+
+# Or by timestamp
+df = spark.read \
+    .format("delta") \
+    .option("timestampAsOf", "2026-01-01") \
+    .load("/data/transactions")
+```
+
+### Schema Evolution
+
+```python
+spark.write \
+    .format("delta") \
+    .option("mergeSchema", "true") \
+    .mode("append") \
+    .save("/data/transactions")
+```
+
+## Apache Iceberg vs Delta vs Hudi
+
+All three are excellent, but differ in strengths:
+
+- **Delta Lake**: Best Spark integration, strong Databricks ecosystem
+- **Apache Iceberg**: Best multi-engine support (Spark, Flink, Trino, Hive)
+- **Apache Hudi**: Best for record-level upserts and CDC workloads
+
+## When to Choose a Lakehouse
+
+Choose a lakehouse when you:
+- Need to support both ML/data science (Python, notebooks) and BI (SQL, dashboards)
+- Have data that changes frequently and need upserts
+- Want to avoid vendor lock-in on storage
+- Need to control costs at petabyte scale
+
+## Conclusion
+
+The lakehouse isn't just a trend — it's a practical response to the real limitations of both lakes and warehouses. Open table formats like Delta Lake and Iceberg are becoming the default storage layer for serious data platforms.
