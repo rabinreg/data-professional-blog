@@ -8,6 +8,13 @@ type CommentItem = {
   createdAt: string;
 };
 
+type MemoryEngagement = {
+  likes: number;
+  comments: CommentItem[];
+};
+
+const memoryStore = new Map<string, MemoryEngagement>();
+
 function getRedis() {
   const url =
     process.env.UPSTASH_REDIS_REST_URL ||
@@ -24,6 +31,7 @@ function getRedis() {
 function getKeys(slug: string) {
   const safeSlug = slug.toLowerCase();
   return {
+    slugKey: safeSlug,
     likesKey: `post:${safeSlug}:likes`,
     commentsKey: `post:${safeSlug}:comments`,
   };
@@ -34,15 +42,18 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const redis = getRedis();
-  if (!redis) {
-    return NextResponse.json(
-      { error: 'Engagement storage is not configured on the server.' },
-      { status: 503 }
-    );
-  }
 
   const { slug } = await params;
-  const { likesKey, commentsKey } = getKeys(slug);
+  const { slugKey, likesKey, commentsKey } = getKeys(slug);
+
+  if (!redis) {
+    const fallback = memoryStore.get(slugKey) ?? { likes: 0, comments: [] };
+    return NextResponse.json({
+      likes: fallback.likes,
+      comments: fallback.comments,
+      storage: 'memory',
+    });
+  }
 
   const [likesRaw, commentsRaw] = await Promise.all([
     redis.get<number>(likesKey),
@@ -62,6 +73,7 @@ export async function GET(
   return NextResponse.json({
     likes: likesRaw ?? 0,
     comments,
+    storage: 'redis',
   });
 }
 
@@ -70,15 +82,9 @@ export async function POST(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const redis = getRedis();
-  if (!redis) {
-    return NextResponse.json(
-      { error: 'Engagement storage is not configured on the server.' },
-      { status: 503 }
-    );
-  }
 
   const { slug } = await params;
-  const { likesKey, commentsKey } = getKeys(slug);
+  const { slugKey, likesKey, commentsKey } = getKeys(slug);
 
   let body: { action?: 'like' | 'comment'; name?: string; message?: string };
   try {
@@ -88,8 +94,18 @@ export async function POST(
   }
 
   if (body.action === 'like') {
+    if (!redis) {
+      const fallback = memoryStore.get(slugKey) ?? { likes: 0, comments: [] };
+      const likes = fallback.likes + 1;
+      memoryStore.set(slugKey, {
+        ...fallback,
+        likes,
+      });
+      return NextResponse.json({ likes, storage: 'memory' });
+    }
+
     const likes = await redis.incr(likesKey);
-    return NextResponse.json({ likes });
+    return NextResponse.json({ likes, storage: 'redis' });
   }
 
   if (body.action === 'comment') {
@@ -114,10 +130,20 @@ export async function POST(
       createdAt: new Date().toISOString(),
     };
 
+    if (!redis) {
+      const fallback = memoryStore.get(slugKey) ?? { likes: 0, comments: [] };
+      const comments = [comment, ...fallback.comments].slice(0, 200);
+      memoryStore.set(slugKey, {
+        ...fallback,
+        comments,
+      });
+      return NextResponse.json({ comment, storage: 'memory' }, { status: 201 });
+    }
+
     await redis.lpush(commentsKey, JSON.stringify(comment));
     await redis.ltrim(commentsKey, 0, 199);
 
-    return NextResponse.json({ comment }, { status: 201 });
+    return NextResponse.json({ comment, storage: 'redis' }, { status: 201 });
   }
 
   return NextResponse.json({ error: 'Unsupported action.' }, { status: 400 });
